@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GhostGlyph — Invisible Character Detector &amp; Text Cleaner</title>
+<meta name="description" content="GhostGlyph reveals invisible Unicode characters hiding in your text — zero-width spaces, bidi overrides, non-breaking spaces, AI copy-paste artifacts and homoglyphs — then cleans them in one click. Free, unlimited, 100% in your browser.">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{ --ink:#1E1B2E; --violet:#4C1D95; --mint:#10B981; --red:#EF4444; }
+  html{ scroll-behavior:smooth; }
+  body{ background:#F6F5FA; color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .glyph-flag{ background:#FEE2E2; color:#7F1D1D; border:1px solid #FCA5A5; border-bottom:2px solid var(--red); border-radius:4px; padding:0 3px; margin:0 1px; position:relative; white-space:pre-wrap; cursor:help; }
+  .glyph-flag .cp-tag{ font-size:9px; line-height:1; color:#B91C1C; background:#FECACA; border-radius:3px; padding:1px 3px; margin-left:2px; vertical-align:super; white-space:nowrap; }
+  .glyph-flag.ai-flag{ background:#E0E7FF; color:#312E81; border-color:#A5B4FC; border-bottom-color:#6366F1; }
+  .glyph-flag.ai-flag .cp-tag{ background:#C7D2FE; color:#3730A3; }
+  .glyph-flag.homo-flag{ background:#FEF3C7; color:#78350F; border-color:#FCD34D; border-bottom-color:#F59E0B; }
+  .glyph-flag.homo-flag .cp-tag{ background:#FDE68A; color:#92400E; }
+  .glyph-flag.homo-flag .latin-tag{ font-size:9px; line-height:1; color:#065F46; background:#A7F3D0; border-radius:3px; padding:1px 3px; margin-left:2px; vertical-align:super; white-space:nowrap; }
+  .map-chip{ display:inline-block; border:1px solid #DDD6FE; background:#EDE9FE; border-radius:4px; padding:1px 3px; margin:0 1px; font-size:12px; line-height:1.4; white-space:pre-wrap; }
+  .map-chip .map-cp{ display:block; font-size:8px; color:#6D28D9; line-height:1.1; }
+  .faq-answer{ display:none; }
+  .faq-item.open .faq-answer{ display:block; }
+  .faq-item.open .faq-chevron{ transform:rotate(180deg); }
+  .faq-chevron{ transition:transform .2s ease; }
+  .stat-chip{ transition:transform .15s ease; }
+  .stat-chip:hover{ transform:translateY(-1px); }
+  @media print{ .no-print{ display:none !important; } }
+</style>
+</head>
+<body id="top">
+
+<!-- ============ HEADER ============ -->
+<header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-violet-100 no-print">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 py-3 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2 select-none">
+      <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-white text-lg" style="background:#4C1D95" aria-hidden="true">&#128123;</span>
+      <span class="text-xl font-extrabold tracking-tight" style="color:#4C1D95">Ghost<span style="color:#10B981">Glyph</span></span>
+    </a>
+    <nav class="flex items-center gap-5 text-sm font-semibold">
+      <a href="#top" class="hover:underline" style="color:#4C1D95">Home</a>
+      <a href="https://fixoraa.tech" class="hover:underline" style="color:#4C1D95">More Tools</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ TOP AD ============ -->
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pt-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <div class="origin-top scale-[0.44] sm:scale-100 shrink-0">
+        <script>
+          atOptions = { 'key' : '4e68ac77881c17fe128a46565d9a4e8c', 'format' : 'iframe', 'height' : 90, 'width' : 728, 'params' : {} };
+        </script>
+        <script src="https://www.highrevenueformat.com/4e68ac77881c17fe128a46565d9a4e8c/invoke.js"></script>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOOL ============ -->
+<main class="mx-auto max-w-6xl px-4 sm:px-6 pt-6 pb-4">
+  <div class="text-center mb-5">
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight" style="color:#4C1D95">Invisible Character Detector &amp; Cleaner</h1>
+    <p class="mt-2 text-slate-600 max-w-2xl mx-auto text-sm sm:text-base">Paste any text and GhostGlyph exposes the characters you cannot see — zero-width spaces, bidi overrides, sneaky spaces, AI copy-paste artifacts and look-alike homoglyphs — then strips them in one click.</p>
+    <div class="mt-3 inline-flex items-center gap-2">
+      <span class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full text-white" style="background:#10B981">
+        <span aria-hidden="true">&#10003;</span> Unlimited Free Usage
+      </span>
+      <span class="text-xs font-semibold px-3 py-1.5 rounded-full bg-violet-100" style="color:#4C1D95">No signup &bull; No watermark</span>
+    </div>
+  </div>
+
+  <!-- Detection summary strip -->
+  <div id="summaryStrip" class="mb-4 hidden">
+    <div class="bg-white rounded-2xl border border-violet-100 shadow-sm p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="font-bold text-sm" style="color:#4C1D95">Detection summary</h2>
+        <span id="summaryTotal" class="text-xs font-bold px-2 py-1 rounded-full bg-red-100 text-red-700"></span>
+      </div>
+      <div id="statChips" class="flex flex-wrap gap-2"></div>
+    </div>
+  </div>
+
+  <!-- Workbench: input left, output right -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- LEFT: input pane -->
+    <section class="bg-white rounded-2xl border border-violet-100 shadow-sm overflow-hidden flex flex-col" aria-label="Input text">
+      <div class="px-4 py-3 border-b border-violet-100 flex items-center justify-between" style="background:#EDE9FE">
+        <h2 class="font-bold text-sm" style="color:#4C1D95">&#129517; Input bench</h2>
+        <span id="charCount" class="mono text-xs text-slate-500">0 chars</span>
+      </div>
+      <textarea id="inputText" rows="12" placeholder="Paste text here… anything copied from ChatGPT, Word, PDFs or web pages works." class="w-full flex-1 p-4 text-sm mono resize-y outline-none focus:ring-2 focus:ring-violet-300 min-h-[240px]" style="color:#1E1B2E"></textarea>
+      <div class="px-4 py-3 border-t border-violet-100 flex flex-wrap gap-2">
+        <button id="btnScan" class="px-4 py-2 rounded-xl text-white text-sm font-bold shadow-sm hover:opacity-90" style="background:#4C1D95">Scan text</button>
+        <button id="btnSample" class="px-4 py-2 rounded-xl text-sm font-bold border border-violet-200 hover:bg-violet-50" style="color:#4C1D95">&#129668; Load dirty sample</button>
+        <button id="btnClear" class="px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 text-slate-600 hover:bg-slate-50">Clear</button>
+      </div>
+    </section>
+
+    <!-- RIGHT: output pane -->
+    <section class="bg-white rounded-2xl border border-violet-100 shadow-sm overflow-hidden flex flex-col" aria-label="Annotated output">
+      <div class="px-4 py-3 border-b border-violet-100 flex items-center justify-between" style="background:#EDE9FE">
+        <h2 class="font-bold text-sm" style="color:#4C1D95">&#128065; Annotated output</h2>
+        <div class="flex flex-wrap gap-2 text-xs font-semibold">
+          <label class="inline-flex items-center gap-1 cursor-pointer" title="Flag em dashes, smart quotes and zero-width chars typical of AI/chat copy-paste">
+            <input type="checkbox" id="optAi" class="accent-indigo-600" checked> AI-text scan
+          </label>
+          <label class="inline-flex items-center gap-1 cursor-pointer" title="Flag Cyrillic/Greek look-alike letters with side-by-side comparison">
+            <input type="checkbox" id="optHomo" class="accent-amber-600" checked> Homoglyphs
+          </label>
+          <label class="inline-flex items-center gap-1 cursor-pointer" title="Show U+XXXX codepoints inline under every character">
+            <input type="checkbox" id="optMap" class="accent-violet-600"> Codepoint map
+          </label>
+        </div>
+      </div>
+      <div id="annotated" class="flex-1 p-4 text-sm mono min-h-[240px] max-h-[420px] overflow-y-auto leading-relaxed" style="color:#1E1B2E" aria-live="polite">
+        <p class="text-slate-400 font-sans">Your scan results appear here. Flagged characters glow <span class="glyph-flag">red</span>, AI-style punctuation <span class="glyph-flag ai-flag">indigo</span>, homoglyphs <span class="glyph-flag homo-flag">amber</span> — hover any flag for details.</p>
+      </div>
+      <div class="px-4 py-3 border-t border-violet-100">
+        <p class="text-xs font-bold mb-2" style="color:#4C1D95">Clean options</p>
+        <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-medium text-slate-700 mb-3">
+          <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cleanZero" class="accent-red-500" checked> Zero-width / tags</label>
+          <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cleanBidi" class="accent-red-500" checked> Bidi overrides</label>
+          <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cleanSpace" class="accent-red-500" checked> Sneaky spaces &rarr; space</label>
+          <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cleanAi" class="accent-indigo-500" checked> Normalize AI punctuation</label>
+          <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cleanHomo" class="accent-amber-500" checked> Replace homoglyphs</label>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="btnClean" class="px-4 py-2 rounded-xl text-white text-sm font-bold shadow-sm hover:opacity-90" style="background:#10B981">Clean text</button>
+          <button id="btnCopy" class="px-4 py-2 rounded-xl text-sm font-bold border border-violet-200 hover:bg-violet-50" style="color:#4C1D95">&#128203; Copy cleaned</button>
+          <button id="btnReport" class="px-4 py-2 rounded-xl text-sm font-bold border border-violet-200 hover:bg-violet-50" style="color:#4C1D95">&#128221; Copy summary</button>
+          <button id="btnDownload" class="px-4 py-2 rounded-xl text-sm font-bold border border-violet-200 hover:bg-violet-50" style="color:#4C1D95">&#8681; .txt</button>
+        </div>
+        <p id="actionMsg" class="text-xs mt-2 h-4 text-slate-500" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Recent scans -->
+  <div class="mt-4 bg-white rounded-2xl border border-violet-100 shadow-sm p-4">
+    <h2 class="font-bold text-sm mb-2" style="color:#4C1D95">Recent scans <span class="font-normal text-slate-400">(kept in this browser only)</span></h2>
+    <div id="recentList" class="text-xs text-slate-500">No scans yet — run your first scan above.</div>
+  </div>
+
+  <!-- Privacy note -->
+  <p class="text-center text-xs text-slate-400 mt-4">&#128274; Everything runs inside your browser. Your text is never uploaded, stored or sent anywhere.</p>
+</main>
+
+<!-- ============ BOTTOM AD ============ -->
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pb-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <script async src="https://js.wpadmngr.com/static/adManager.js" data-admpid="464498"></script>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SEO CONTENT ============ -->
+<div class="mx-auto max-w-4xl px-4 sm:px-6 pb-10">
+<article id="seo-article" class="prose-neutral text-slate-700 text-[15px] leading-relaxed">
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">Invisible Characters Are Hiding in Your Text — Here Is How to Find Them</h2>
+<p>Every character on this page has a code point — a number assigned by the Unicode standard that tells your computer exactly which symbol to draw. Most of the time, what you see is what you get. But Unicode also defines dozens of characters that render as nothing at all: zero-width spaces, invisible joiners, direction-control marks and tag characters that survive copy-paste while remaining completely invisible in editors, browsers and chat apps. A sentence can look perfectly ordinary while carrying a dozen extra code points you never typed.</p>
+<p>This matters far beyond curiosity. A zero-width space wedged inside a password or a discount code makes it silently wrong when pasted into a form. A non-breaking space in a spreadsheet column breaks VLOOKUP-style matching because the computer sees a different character than you do. Copy-paste from Word, PDFs and AI chatbots routinely injects curly quotes, em dashes, narrow no-break spaces and byte-order marks that trip up code editors, LaTeX compilers, CSV imports and content-management systems. Security researchers even track "Trojan Source" attacks, where bidirectional override characters flip the visual order of code so that what reviewers read is not what the machine executes. The common thread: the human eye cannot audit what it cannot see, so you need a detector that shows you the raw code points.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">The Usual Suspects: Zero-Width Characters</h2>
+<p>The most common invisible culprits live in the Unicode general-punctuation block. The zero-width space (U+200B) is the classic: it takes up no horizontal space and has no glyph, yet it is a real character that breaks string equality — "hello" and "hello\u200B" look identical but are different strings. Its siblings include the zero-width non-joiner (U+200C) and zero-width joiner (U+200D), which legitimately control ligature formation in scripts like Arabic and Devanagari, and also appear inside complex emoji sequences such as family emoji. Because they are invisible, they are also abused: pasted AI output, "anti-plagiarism" spinners and fingerprinting scripts sprinkle them between words where readers never notice.</p>
+<p>GhostGlyph flags each of these individually and shows exactly where they sit in your text. When you clean them, the joiners are removed while ordinary letters and legitimate emoji are preserved. A good rule of thumb: if you did not type the zero-width character deliberately — for example to shape a ligature in Persian or Hindi — it is noise and can safely go.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">Spaces That Are Not Spaces</h2>
+<p>Your spacebar produces U+0020, the ordinary space. Unicode defines more than a dozen other space characters that look like it but behave differently. The non-breaking space (U+00A0) prevents a line break — Word and many websites insert it between numbers and units, and web pages use it to keep "10 km" together. The narrow no-break space (U+202F) is its slimmer cousin and has become famous because several generations of AI chat models emit it where an ordinary space belongs, a quirk documented across 2025 that still shows up in pasted chatbot output today. The figure space (U+2007) matches the width of a digit, the word joiner (U+2060) glues words together invisibly, and the ideographic space (U+3000) is a full-width space used in CJK typography.</p>
+<p>Why care? Non-breaking spaces are the number-one cause of "the values look the same but the formula says FALSE" mysteries in spreadsheets. They defeat trim() functions in some languages, confuse search engines indexing your content, and break command-line arguments copied from documentation. GhostGlyph's cleaner converts all of these impostor spaces back into ordinary spaces, so the text behaves exactly the way it looks.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">The Soft Hyphen and the Byte-Order Mark</h2>
+<p>Two more characters deserve special attention because they are invisible in some contexts and visible in others. The soft hyphen (U+00AD) is a hint to the typesetter: break the word here if you must hyphenate at line end. In HTML it is invisible until a line break lands exactly on it, at which point a hyphen appears from nowhere. Copy a paragraph from a professionally typeset PDF and you may inherit dozens of them, silently changing word tokens for search and text processing.</p>
+<p>The byte-order mark (U+FEFF) is a legacy of the UTF-16 era: a signature placed at the very start of a file to declare its encoding. Some Windows editors still prepend it to UTF-8 files, and web servers serve it along with the page. It renders as nothing, but it shifts string offsets, breaks JSON parsers that do not expect it, and shows up as a mystery character in concatenated files. GhostGlyph detects and strips it wherever it appears.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">Bidirectional Overrides: When Text Lies About Its Order</h2>
+<p>Unicode supports mixed left-to-right and right-to-left text through explicit direction controls: U+202A through U+202E (embedding and override marks) plus the newer isolate marks U+2066 through U+2069. Normally these are balanced and harmless. Unbalanced, they become the "Trojan Source" attack demonstrated by security researchers in 2021: a right-to-left override (U+202E) can make source code display as harmless while the underlying bytes do something else, which is why compilers like Rust now warn about them.</p>
+<p>You do not need to be a programmer to care. A bidi override pasted into a chat message or document can visually reorder a URL, a bank account number or an instruction so that what you read is not what you copy. GhostGlyph treats every unmatched direction control as a critical finding and removes them during cleaning — the single most impactful hygiene step this tool performs.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">Homoglyphs: Letters That Wear a Disguise</h2>
+<p>A homoglyph is a character from one script that is visually indistinguishable from a character in another. Cyrillic "а" (U+0430) and Latin "a" (U+0061) look identical in almost every font; the same is true for Cyrillic "е"/Latin "e", "о"/"o", "р"/"p", "с"/"c", "х"/"x", and Greek "ο"/Latin "o" or "ρ"/Latin "p". Whole alphabets overlap: Cyrillic capital "АВЕКМНОРСТХ" maps one-to-one onto Latin "ABEK MHOPCTX" visually, and fullwidth "ａ" (U+FF41) mimics Latin "a" at double width.</p>
+<p>This is the engine of homograph phishing: "apple.com" with a Cyrillic "а" resolves to a different domain than the real Apple. But the danger is not only phishing. A homoglyph in a username, a brand name or a code identifier breaks logins, searches and builds in ways that are maddening to debug because the text looks correct. GhostGlyph's homoglyph scanner shows a side-by-side comparison — the suspicious character next to its Latin look-alike, both labeled with code points — so you can judge instantly, and the cleaner can normalize them back to plain ASCII as an explicit opt-in.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">The AI Copy-Paste Problem: Em Dashes, Smart Quotes and Ghost Spaces</h2>
+<p>Text copied out of AI chatbots, Word and PDFs arrives with typographic passengers. Em dashes (U+2014) where a human would type a hyphen, curly "smart" quotes (U+201C, U+201D, U+2018, U+2019) where a human would type straight ones, ellipses (U+2026) instead of three dots, and narrow no-break spaces where ordinary spaces belong. None of these are malicious, but they are the fingerprints of machine-generated or machine-typeset text — and they cause real friction: smart quotes break code and SQL, em dashes confuse CSV column widths, and ghost spaces break plagiarism checkers, CMS slugs and search.</p>
+<p>GhostGlyph's AI-text scan mode flags exactly this family of characters. It does not claim to detect AI authorship — invisible characters are neither proof of AI writing nor proof of human writing — but it reliably finds the formatting residue that copy-paste leaves behind. The cleaner's "normalize AI punctuation" option converts smart quotes to straight quotes, em dashes to spaced hyphens and ellipses to three dots, producing plain, portable ASCII-friendly text.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">How GhostGlyph Works: Scan, Annotate, Clean</h2>
+<p>Using the tool takes seconds. Paste your text into the left bench and press Scan. The engine walks the string code point by code point — using proper Unicode-aware iteration, so emoji and other characters outside the basic multilingual plane are never split — and matches each code point against a curated table of invisible, direction-control, suspicious-space and homoglyph characters. Findings appear in the annotated output on the right: flagged glyphs are highlighted in place with a small U+XXXX label, and hovering any flag reveals the character's official Unicode name and category.</p>
+<p>The detection summary strip counts findings per category, and the character-map overlay toggle goes one step further, labeling every character in the text with its code point — a full X-ray view that is genuinely rare among free web tools. When you are ready, Clean text removes or normalizes each category you have ticked, then lets you copy the result, copy a per-category count summary, or download the cleaned text as a .txt file. Recent scan summaries are kept in your browser's local storage so you can compare runs; nothing is ever uploaded because there is no server — the entire analysis happens in JavaScript on your device.</p>
+
+<h2 class="text-2xl font-extrabold mt-10 mb-3" style="color:#4C1D95">Practical Workflows: Who Needs This and When</h2>
+<p>Writers and editors use invisible-character detection before publishing: paste a draft, strip the ghost spaces and smart quotes, and the CMS, the newsletter tool and the ebook converter all behave. Developers paste suspicious strings — API keys, tokens, webhook URLs, SQL fragments — to find the zero-width space that is breaking authentication. Students and researchers clean citations copied from PDFs, where soft hyphens and ligature artifacts corrupt references. Localization teams verify that translated strings contain no bidi overrides or homoglyphs before shipping. And anyone who has ever stared at two "identical" strings that refuse to match finally has a one-click answer.</p>
+<p>A final note on cleaning discipline: remove what you understand. Zero-width and direction-control characters are almost always safe to strip. Homoglyph replacement should stay opt-in when your text is legitimately multilingual — Cyrillic text is not an attack, it is a language. That is why GhostGlyph makes homoglyph cleaning a separate checkbox rather than a silent default: the tool shows you everything, and you decide.</p>
+
+</article>
+
+<!-- ============ FAQS ============ -->
+<section class="mt-10" aria-label="Frequently asked questions">
+<h2 class="text-2xl font-extrabold mb-4" style="color:#4C1D95">Frequently Asked Questions</h2>
+<div id="faqList" class="space-y-3">
+
+<div class="faq-item bg-white rounded-xl border border-violet-100 overflow-hidden">
+<button class="faq-toggle w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm" style="color:#4C1D95">
+What exactly is a zero-width character?
+<span class="faq-chevron text-violet-400" aria-hidden="true">&#9660;</span>
+</button>
+<div class="faq-answer px-5 pb-5 text-sm text-slate-600">
+A zero-width character is a Unicode code point that occupies no horizontal space when rendered, so it is completely invisible. The common ones are the zero-width space (U+200B), zero-width non-joiner (U+200C) and zero-width joiner (U+200D). They are legitimate in some scripts — ZWJ and ZWNJ control ligatures in Arabic, Persian and Indic languages, and ZWJ glues together compound emoji. Problems arise when they appear unintentionally, for example in text copied from chatbots or websites, where they break string comparisons, passwords, search and code without any visible clue. GhostGlyph highlights each one in place with its code point so you can see exactly what is hiding.
+</div>
+</div>
+
+<div class="faq-item bg-white rounded-xl border border-violet-100 overflow-hidden">
+<button class="faq-toggle w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm" style="color:#4C1D95">
+Can invisible characters prove text was written by AI?
+<span class="faq-chevron text-violet-400" aria-hidden="true">&#9660;</span>
+</button>
+<div class="faq-answer px-5 pb-5 text-sm text-slate-600">
+No — and you should be skeptical of any tool that claims otherwise. Invisible characters are formatting residue, not authorship evidence. They arrive from many ordinary sources: Word documents, PDF extraction, web pages, messaging apps and, yes, sometimes AI chat output (narrow no-break spaces and zero-width spaces have been documented in several chatbot generations). Their presence tells you the text passed through some software that inserted them; it says nothing reliable about who or what wrote the words. GhostGlyph's AI-text scan flags the character patterns commonly found in AI copy-paste — em dashes, smart quotes, ghost spaces — so you can clean the formatting, not to pass judgment on authorship.
+</div>
+</div>
+
+<div class="faq-item bg-white rounded-xl border border-violet-100 overflow-hidden">
+<button class="faq-toggle w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm" style="color:#4C1D95">
+What is a homoglyph attack and how do I spot one?
+<span class="faq-chevron text-violet-400" aria-hidden="true">&#9660;</span>
+</button>
+<div class="faq-answer px-5 pb-5 text-sm text-slate-600">
+A homoglyph attack substitutes letters from one script with visually identical letters from another — for example Cyrillic "а" (U+0430) for Latin "a" (U+0061) — so that "paypal.com" looks right while resolving to an attacker's domain. Spotting one by eye is essentially impossible, which is why you need code-point inspection. GhostGlyph scans for common Cyrillic, Greek and fullwidth confusables and shows a side-by-side comparison: the suspicious character next to its Latin look-alike, each labeled with its Unicode code point. If a "Latin" word contains code points from the Cyrillic block, you have found a disguise.
+</div>
+</div>
+
+<div class="faq-item bg-white rounded-xl border border-violet-100 overflow-hidden">
+<button class="faq-toggle w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm" style="color:#4C1D95">
+Why does my pasted text break code, CSVs or formulas?
+<span class="faq-chevron text-violet-400" aria-hidden="true">&#9660;</span>
+</button>
+<div class="faq-answer px-5 pb-5 text-sm text-slate-600">
+Almost always because of invisible characters. A non-breaking space (U+00A0) looks like a space but is a different code point, so spreadsheet lookups fail, trim() functions in some languages leave it behind, and command-line tools reject it. Smart quotes break SQL strings and JSON. A byte-order mark (U+FEFF) at the start of pasted content shifts offsets and confuses parsers. Soft hyphens from PDFs split words into unrecognized tokens. The fix is mechanical: detect the exact code points, normalize the spaces, strip the zero-width marks. Paste the offending text into GhostGlyph, scan it, and the culprit is usually highlighted within seconds.
+</div>
+</div>
+
+<div class="faq-item bg-white rounded-xl border border-violet-100 overflow-hidden">
+<button class="faq-toggle w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm" style="color:#4C1D95">
+Is it safe to remove all invisible characters automatically?
+<span class="faq-chevron text-violet-400" aria-hidden="true">&#9660;</span>
+</button>
+<div class="faq-answer px-5 pb-5 text-sm text-slate-600">
+For zero-width characters, direction controls and stray formatting marks, yes — they carry no meaning in ordinary prose and are safe to strip. Two categories deserve care. First, ZWJ and ZWNJ are meaningful in Arabic, Persian, Hindi and other scripts where they shape ligatures; stripping them there would alter the text, so review context first. Second, homoglyphs are only suspicious when a script you did not expect appears inside otherwise Latin text — genuine Cyrillic, Greek or fullwidth text is a language, not an attack. That is why GhostGlyph keeps homoglyph replacement as a separate opt-in checkbox instead of removing it silently. When in doubt, scan first, read the annotated output, then clean only the categories you understand.
+</div>
+</div>
+
+<div class="faq-item bg-white rounded-xl border border-violet-100 overflow-hidden">
+<button class="faq-toggle w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm" style="color:#4C1D95">
+Does GhostGlyph upload or store my text anywhere?
+<span class="faq-chevron text-violet-400" aria-hidden="true">&#9660;</span>
+</button>
+<div class="faq-answer px-5 pb-5 text-sm text-slate-600">
+No. GhostGlyph is a single self-contained web page with no backend, no analytics endpoint and no network calls for its analysis — all detection and cleaning runs in JavaScript inside your browser tab. The only thing stored is a small summary of your recent scans (character counts per category and timestamps), kept in your browser's own local storage so you can compare runs later. Your pasted text itself is never saved, never transmitted and never seen by anyone but you. You can verify this by disconnecting from the internet after the page loads: scanning and cleaning keep working offline.
+</div>
+</div>
+
+</div>
+</section>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer class="border-t border-violet-100 bg-white no-print">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
+    <span class="font-bold" style="color:#4C1D95">GhostGlyph</span>
+    <span>Free invisible-character detector &amp; cleaner. Unlimited usage.</span>
+    <nav class="flex gap-5 font-semibold">
+      <a href="#top" class="hover:underline" style="color:#4C1D95">Home</a>
+      <a href="https://fixoraa.tech" class="hover:underline" style="color:#4C1D95">More Tools</a>
+    </nav>
+  </div>
+</footer>
+
+<!-- ============ PURE LOGIC (extracted by tests) ============ -->
+<script>
+/*__PURE_START__*/
+// Character database: key = uppercase hex code point (no leading zeros, no "U+").
+const CHAR_DB = {
+  // zero-width / format controls
+  '200B': { name: 'ZERO WIDTH SPACE', cat: 'zero' },
+  '200C': { name: 'ZERO WIDTH NON-JOINER', cat: 'zero' },
+  '200D': { name: 'ZERO WIDTH JOINER', cat: 'zero' },
+  '2060': { name: 'WORD JOINER', cat: 'zero' },
+  '2061': { name: 'FUNCTION APPLICATION', cat: 'zero' },
+  '2062': { name: 'INVISIBLE TIMES', cat: 'zero' },
+  '2063': { name: 'INVISIBLE SEPARATOR', cat: 'zero' },
+  '2064': { name: 'INVISIBLE PLUS', cat: 'zero' },
+  'FE00': { name: 'VARIATION SELECTOR-1', cat: 'zero' },
+  'FE01': { name: 'VARIATION SELECTOR-2', cat: 'zero' },
+  'FE02': { name: 'VARIATION SELECTOR-3', cat: 'zero' },
+  'FEFF': { name: 'ZERO WIDTH NO-BREAK SPACE (BOM)', cat: 'zero' },
+  '180E': { name: 'MONGOLIAN VOWEL SEPARATOR', cat: 'zero' },
+  // bidi controls
+  '200E': { name: 'LEFT-TO-RIGHT MARK', cat: 'bidi' },
+  '200F': { name: 'RIGHT-TO-LEFT MARK', cat: 'bidi' },
+  '202A': { name: 'LEFT-TO-RIGHT EMBEDDING', cat: 'bidi' },
+  '202B': { name: 'RIGHT-TO-LEFT EMBEDDING', cat: 'bidi' },
+  '202C': { name: 'POP DIRECTIONAL FORMATTING', cat: 'bidi' },
+  '202D': { name: 'LEFT-TO-RIGHT OVERRIDE', cat: 'bidi' },
+  '202E': { name: 'RIGHT-TO-LEFT OVERRIDE', cat: 'bidi' },
+  '2066': { name: 'LEFT-TO-RIGHT ISOLATE', cat: 'bidi' },
+  '2067': { name: 'RIGHT-TO-LEFT ISOLATE', cat: 'bidi' },
+  '2068': { name: 'FIRST STRONG ISOLATE', cat: 'bidi' },
+  '2069': { name: 'POP DIRECTIONAL ISOLATE', cat: 'bidi' },
+  // sneaky whitespace / invisible punctuation
+  'A0':   { name: 'NO-BREAK SPACE', cat: 'space' },
+  'AD':   { name: 'SOFT HYPHEN', cat: 'space' },
+  '2000': { name: 'EN QUAD', cat: 'space' },
+  '2001': { name: 'EM QUAD', cat: 'space' },
+  '2002': { name: 'EN SPACE', cat: 'space' },
+  '2003': { name: 'EM SPACE', cat: 'space' },
+  '2004': { name: 'THREE-PER-EM SPACE', cat: 'space' },
+  '2005': { name: 'FOUR-PER-EM SPACE', cat: 'space' },
+  '2006': { name: 'SIX-PER-EM SPACE', cat: 'space' },
+  '2007': { name: 'FIGURE SPACE', cat: 'space' },
+  '2008': { name: 'PUNCTUATION SPACE', cat: 'space' },
+  '2009': { name: 'THIN SPACE', cat: 'space' },
+  '200A': { name: 'HAIR SPACE', cat: 'space' },
+  '202F': { name: 'NARROW NO-BREAK SPACE', cat: 'space' },
+  '205F': { name: 'MEDIUM MATHEMATICAL SPACE', cat: 'space' },
+  '3000': { name: 'IDEOGRAPHIC SPACE', cat: 'space' }
+};
+
+// AI-style typography (visible tells typical of chat / Word / PDF copy-paste)
+const AI_DB = {
+  '2013': { name: 'EN DASH', repl: '-' },
+  '2014': { name: 'EM DASH', repl: ' - ' },
+  '2018': { name: 'LEFT SINGLE QUOTATION MARK', repl: "'" },
+  '2019': { name: 'RIGHT SINGLE QUOTATION MARK', repl: "'" },
+  '201A': { name: 'SINGLE LOW-9 QUOTATION MARK', repl: "'" },
+  '201C': { name: 'LEFT DOUBLE QUOTATION MARK', repl: '"' },
+  '201D': { name: 'RIGHT DOUBLE QUOTATION MARK', repl: '"' },
+  '201E': { name: 'DOUBLE LOW-9 QUOTATION MARK', repl: '"' },
+  '2026': { name: 'HORIZONTAL ELLIPSIS', repl: '...' }
+};
+
+// Tag characters U+E0000..U+E007F (hidden metadata carriers)
+function isTagChar(cp) { return cp >= 0xE0000 && cp <= 0xE007F; }
+function isVariationSelector(cp) { return (cp >= 0xFE00 && cp <= 0xFE0F) || (cp >= 0xE0100 && cp <= 0xE01EF); }
+
+// Homoglyph table: non-Latin code point (hex) -> Latin look-alike
+const HOMOGLYPHS = {
+  // Cyrillic lowercase
+  '430': { latin: 'a', script: 'Cyrillic' }, '435': { latin: 'e', script: 'Cyrillic' },
+  '43E': { latin: 'o', script: 'Cyrillic' }, '440': { latin: 'p', script: 'Cyrillic' },
+  '441': { latin: 'c', script: 'Cyrillic' }, '445': { latin: 'x', script: 'Cyrillic' },
+  '443': { latin: 'y', script: 'Cyrillic' }, '456': { latin: 'i', script: 'Cyrillic' },
+  '458': { latin: 'j', script: 'Cyrillic' }, '449': { latin: 'h', script: 'Cyrillic' },
+  '43A': { latin: 'k', script: 'Cyrillic' }, '43D': { latin: 'n', script: 'Cyrillic' },
+  '431': { latin: 'b', script: 'Cyrillic' },
+  // Cyrillic uppercase
+  '410': { latin: 'A', script: 'Cyrillic' }, '412': { latin: 'B', script: 'Cyrillic' },
+  '415': { latin: 'E', script: 'Cyrillic' }, '41A': { latin: 'K', script: 'Cyrillic' },
+  '41C': { latin: 'M', script: 'Cyrillic' }, '41D': { latin: 'H', script: 'Cyrillic' },
+  '41E': { latin: 'O', script: 'Cyrillic' }, '420': { latin: 'P', script: 'Cyrillic' },
+  '421': { latin: 'C', script: 'Cyrillic' }, '422': { latin: 'T', script: 'Cyrillic' },
+  '425': { latin: 'X', script: 'Cyrillic' },
+  // Greek lowercase
+  '3B1': { latin: 'a', script: 'Greek' }, '3B5': { latin: 'e', script: 'Greek' },
+  '3BF': { latin: 'o', script: 'Greek' }, '3C1': { latin: 'p', script: 'Greek' },
+  '3C5': { latin: 'u', script: 'Greek' }, '3BD': { latin: 'v', script: 'Greek' },
+  // Greek uppercase
+  '391': { latin: 'A', script: 'Greek' }, '392': { latin: 'B', script: 'Greek' },
+  '395': { latin: 'E', script: 'Greek' }, '396': { latin: 'Z', script: 'Greek' },
+  '397': { latin: 'H', script: 'Greek' }, '399': { latin: 'I', script: 'Greek' },
+  '39A': { latin: 'K', script: 'Greek' }, '39C': { latin: 'M', script: 'Greek' },
+  '39D': { latin: 'N', script: 'Greek' }, '39F': { latin: 'O', script: 'Greek' },
+  '3A1': { latin: 'P', script: 'Greek' }, '3A4': { latin: 'T', script: 'Greek' },
+  '3A7': { latin: 'X', script: 'Greek' }, '3A5': { latin: 'Y', script: 'Greek' }
+};
+(function addFullwidth() {
+  for (let i = 0; i < 26; i++) {
+    HOMOGLYPHS[(0xFF41 + i).toString(16).toUpperCase()] = { latin: String.fromCharCode(97 + i), script: 'Fullwidth' };
+    HOMOGLYPHS[(0xFF21 + i).toString(16).toUpperCase()] = { latin: String.fromCharCode(65 + i), script: 'Fullwidth' };
+  }
+  for (let i = 0; i < 10; i++) {
+    HOMOGLYPHS[(0xFF10 + i).toString(16).toUpperCase()] = { latin: String.fromCharCode(48 + i), script: 'Fullwidth' };
+  }
+})();
+
+function fmtCp(cp) {
+  const h = cp.toString(16).toUpperCase();
+  return 'U+' + (h.length < 4 ? '0'.repeat(4 - h.length) + h : h);
+}
+function cpKey(cp) {
+  return cp.toString(16).toUpperCase().replace(/^0+(?=[0-9A-F]{1}$)/, '').replace(/^0+/, '') || '0';
+}
+
+// Iterate Unicode-aware; index = code-point offset
+function eachCp(text, cb) {
+  let i = 0;
+  for (const ch of text) { cb(ch, ch.codePointAt(0), i); i++; }
+}
+function codePoints(text) { return Array.from(text, ch => ch.codePointAt(0)); }
+function isAstral(cp) { return typeof cp === 'number' && cp > 0xFFFF; }
+
+function detectInvisible(text) {
+  const out = [];
+  if (!text) return out;
+  const cps = codePoints(text);
+  cps.forEach((cp, idx) => {
+    const ch = String.fromCodePoint(cp);
+    // skip ZWJ inside emoji sequences (legit compound-emoji glue)
+    if (cp === 0x200D && (isAstral(cps[idx - 1]) || isAstral(cps[idx + 1]))) return;
+    const key = cp.toString(16).toUpperCase().replace(/^0+/, '') || '0';
+    const rec = CHAR_DB[key];
+    if (rec) { out.push({ char: ch, cp: fmtCp(cp), name: rec.name, cat: rec.cat, index: idx }); return; }
+    if (isTagChar(cp)) { out.push({ char: ch, cp: fmtCp(cp), name: 'TAG CHARACTER (hidden metadata)', cat: 'zero', index: idx }); return; }
+    if (isVariationSelector(cp) && !CHAR_DB[key]) { out.push({ char: ch, cp: fmtCp(cp), name: 'VARIATION SELECTOR', cat: 'zero', index: idx }); return; }
+    if (cp >= 0x2060 && cp <= 0x2064 && !CHAR_DB[key]) { out.push({ char: ch, cp: fmtCp(cp), name: 'INVISIBLE FORMAT CHARACTER', cat: 'zero', index: idx }); }
+  });
+  return out;
+}
+
+function homoglyphScan(text) {
+  const out = [];
+  if (!text) return out;
+  eachCp(text, (ch, cp, idx) => {
+    const key = cp.toString(16).toUpperCase().replace(/^0+/, '') || '0';
+    const rec = HOMOGLYPHS[key];
+    if (rec) out.push({ char: ch, cp: fmtCp(cp), latin: rec.latin, script: rec.script, name: rec.script.toUpperCase() + ' LOOK-ALIKE OF "' + rec.latin + '"', cat: 'homoglyph', index: idx });
+  });
+  return out;
+}
+
+function aiTextScan(text) {
+  const out = [];
+  if (!text) return out;
+  const zeroSet = new Set(['200B', '200C', '200D', 'FEFF', 'AD']);
+  eachCp(text, (ch, cp, idx) => {
+    const key = cp.toString(16).toUpperCase().replace(/^0+/, '') || '0';
+    const rec = AI_DB[key];
+    if (rec) { out.push({ char: ch, cp: fmtCp(cp), name: rec.name, cat: 'ai', index: idx, fix: rec.repl }); return; }
+    if (zeroSet.has(key) || isTagChar(cp)) {
+      const db = CHAR_DB[key];
+      out.push({ char: ch, cp: fmtCp(cp), name: db ? db.name : 'HIDDEN METADATA CHARACTER', cat: 'ai', index: idx, fix: '' });
+      return;
+    }
+    // narrow NBSP / figure space family from chat output
+    if (key === '202F' || key === 'A0' || key === '2007') {
+      const db = CHAR_DB[key];
+      out.push({ char: ch, cp: fmtCp(cp), name: db.name, cat: 'ai', index: idx, fix: ' ' });
+    }
+  });
+  return out;
+}
+
+const CAT_LABELS = {
+  zero: 'Zero-width / hidden',
+  bidi: 'Bidi overrides',
+  space: 'Sneaky spaces',
+  ai: 'AI-style punctuation',
+  homoglyph: 'Homoglyphs'
+};
+
+function summarizeFindings(findings) {
+  const byCategory = {};
+  const byCodepoint = {};
+  findings.forEach(f => {
+    byCategory[f.cat] = (byCategory[f.cat] || 0) + 1;
+    byCodepoint[f.cp] = (byCodepoint[f.cp] || 0) + 1;
+  });
+  const cats = Object.keys(byCategory).map(cat => ({
+    cat: cat,
+    label: CAT_LABELS[cat] || cat,
+    count: byCategory[cat]
+  })).sort((a, b) => b.count - a.count);
+  return { total: findings.length, categories: cats, byCodepoint: byCodepoint };
+}
+
+function cleanText(text, opts) {
+  opts = opts || {};
+  const removed = { zero: 0, bidi: 0, space: 0, ai: 0, homoglyph: 0 };
+  if (!text) return { cleaned: '', removed: removed };
+  const o = {
+    zero: opts.zero !== false, bidi: opts.bidi !== false, space: opts.space !== false,
+    ai: opts.ai !== false, homoglyph: opts.homoglyph === true
+  };
+  const aiKeys = {};
+  Object.keys(AI_DB).forEach(k => { aiKeys[k] = AI_DB[k].repl; });
+  let out = '';
+  const cps = codePoints(text);
+  cps.forEach((cp, idx) => {
+    const ch = String.fromCodePoint(cp);
+    const key = cp.toString(16).toUpperCase().replace(/^0+/, '') || '0';
+    const rec = CHAR_DB[key];
+    if (rec) {
+      if (rec.cat === 'zero' && o.zero) {
+        if (cp === 0x200D && (isAstral(cps[idx - 1]) || isAstral(cps[idx + 1]))) { out += ch; return; } // keep emoji glue
+        removed.zero++; return;
+      }
+      if (rec.cat === 'bidi' && o.bidi) { removed.bidi++; return; }
+      if (rec.cat === 'space' && o.space) {
+        removed.space++;
+        if (key === 'AD') return; // soft hyphen vanishes
+        out += ' '; return;
+      }
+      if (isTagChar(cp)) { if (o.zero) { removed.zero++; return; } }
+    } else if (isTagChar(cp) || isVariationSelector(cp)) {
+      if (o.zero) { removed.zero++; return; }
+    }
+    if (cp === 0x200D && o.zero) {
+      if (isAstral(cps[idx - 1]) || isAstral(cps[idx + 1])) { out += ch; return; } // keep emoji glue
+      removed.zero++; return;
+    }
+    const h = HOMOGLYPHS[key];
+    if (h && o.homoglyph) { removed.homoglyph++; out += h.latin; return; }
+    if (o.ai && Object.prototype.hasOwnProperty.call(aiKeys, key)) { removed.ai++; out += aiKeys[key]; return; }
+    out += ch;
+  });
+  if (o.ai) {
+    const before = out;
+    out = out.replace(/[ \t]{2,}/g, ' ');
+    if (out !== before) removed.ai += 1;
+  }
+  return { cleaned: out, removed: removed };
+}
+
+function buildReport(cleaned, summary) {
+  const lines = [];
+  lines.push('GhostGlyph scan report');
+  lines.push('Total findings: ' + summary.total);
+  summary.categories.forEach(c => { lines.push('- ' + c.label + ': ' + c.count); });
+  lines.push('');
+  lines.push('--- cleaned text ---');
+  lines.push(cleaned);
+  return lines.join('\n');
+}
+/*__PURE_END__*/
+</script>
+
+<!-- ============ APP WIRING ============ -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const input = $('inputText'), annotated = $('annotated');
+  const strip = $('summaryStrip'), chips = $('statChips'), totalEl = $('summaryTotal');
+  const msg = $('actionMsg');
+
+  let lastFindings = [], lastSummary = null, lastCleaned = '', lastScanText = '';
+
+  const CAT_STYLE = {
+    zero: 'bg-red-100 text-red-700 border border-red-200',
+    bidi: 'bg-red-100 text-red-700 border border-red-200',
+    space: 'bg-orange-100 text-orange-700 border border-orange-200',
+    ai: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
+    homoglyph: 'bg-amber-100 text-amber-700 border border-amber-200'
+  };
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function collectFindings(text) {
+    const found = detectInvisible(text);
+    const seen = new Set(found.map(f => f.index));
+    if ($('optHomo').checked) {
+      homoglyphScan(text).forEach(f => { if (!seen.has(f.index)) { seen.add(f.index); found.push(f); } });
+    }
+    if ($('optAi').checked) {
+      aiTextScan(text).forEach(f => { if (!seen.has(f.index)) { seen.add(f.index); found.push(f); } });
+    }
+    found.sort((a, b) => a.index - b.index);
+    return found;
+  }
+
+  function runScan() {
+    const text = input.value;
+    lastScanText = text;
+    $('charCount').textContent = Array.from(text).length + ' chars';
+    if (!text) {
+      strip.classList.add('hidden');
+      annotated.innerHTML = '<p class="text-slate-400 font-sans">Paste some text and press <b>Scan text</b> — or try the dirty sample button.</p>';
+      lastFindings = []; lastSummary = null; lastCleaned = '';
+      return;
+    }
+    lastFindings = collectFindings(text);
+    lastSummary = summarizeFindings(lastFindings);
+    renderSummary();
+    renderAnnotated(text);
+    saveRecent();
+  }
+
+  function renderSummary() {
+    strip.classList.remove('hidden');
+    totalEl.textContent = lastSummary.total === 0 ? 'All clean — 0 findings' : lastSummary.total + ' finding' + (lastSummary.total > 1 ? 's' : '');
+    if (lastSummary.total === 0) {
+      chips.innerHTML = '<span class="text-xs text-slate-500">No invisible characters, bidi marks, sneaky spaces, AI artifacts or homoglyphs detected.</span>';
+      return;
+    }
+    chips.innerHTML = lastSummary.categories.map(c =>
+      '<span class="stat-chip inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ' + (CAT_STYLE[c.cat] || 'bg-slate-100 text-slate-600') + '">' +
+      esc(c.label) + ' <span class="mono">' + c.count + '</span></span>'
+    ).join('');
+  }
+
+  function renderAnnotated(text) {
+    const mapMode = $('optMap').checked;
+    const byIndex = {};
+    lastFindings.forEach(f => { byIndex[f.index] = f; });
+    let html = '';
+    let i = 0;
+    for (const ch of text) {
+      const f = byIndex[i];
+      if (mapMode) {
+        const cp = fmtCp(ch.codePointAt(0));
+        const cls = f ? flagClass(f) : '';
+        html += '<span class="map-chip ' + cls + '">' + esc(ch === '\n' ? '↵' : ch) + '<span class="map-cp">' + cp + '</span></span>' + (ch === '\n' ? '<br>' : '');
+      } else if (f) {
+        const label = f.cat === 'homoglyph' ? '<span class="cp-tag">' + f.cp + '</span><span class="latin-tag">&rarr;' + esc(f.latin) + '</span>' : '<span class="cp-tag">' + f.cp + '</span>';
+        html += '<mark class="' + flagClass(f) + '" title="' + esc(f.name) + ' (' + f.cp + ')' + (f.script ? ' — ' + f.script + ' script' : '') + '">' + esc(ch) + label + '</mark>';
+      } else {
+        html += ch === '\n' ? '<br>' : esc(ch);
+      }
+      i++;
+    }
+    if (lastSummary && lastSummary.total === 0 && !mapMode) {
+      html = '<p class="text-emerald-700 font-sans font-semibold mb-2">&#10003; Clean — nothing hidden in this text.</p>' + html;
+    }
+    annotated.innerHTML = html;
+  }
+
+  function flagClass(f) {
+    if (f.cat === 'ai') return 'glyph-flag ai-flag';
+    if (f.cat === 'homoglyph') return 'glyph-flag homo-flag';
+    return 'glyph-flag';
+  }
+
+  function readCleanOpts() {
+    return {
+      zero: $('cleanZero').checked, bidi: $('cleanBidi').checked,
+      space: $('cleanSpace').checked, ai: $('cleanAi').checked,
+      homoglyph: $('cleanHomo').checked
+    };
+  }
+
+  function doClean(silent) {
+    const text = input.value;
+    if (!text) { flash('Paste some text first.', true); return null; }
+    const res = cleanText(text, readCleanOpts());
+    lastCleaned = res.cleaned;
+    const n = res.removed.zero + res.removed.bidi + res.removed.space + res.removed.ai + res.removed.homoglyph;
+    if (!silent) flash('Cleaned — removed ' + n + ' item' + (n === 1 ? '' : 's') + ' (zero-width: ' + res.removed.zero + ', bidi: ' + res.removed.bidi + ', spaces: ' + res.removed.space + ', AI punctuation: ' + res.removed.ai + ', homoglyphs: ' + res.removed.homoglyph + ').');
+    return res;
+  }
+
+  function flash(text, isErr) {
+    msg.textContent = text;
+    msg.className = 'text-xs mt-2 h-4 ' + (isErr ? 'text-red-600' : 'text-emerald-600');
+    clearTimeout(flash._t);
+    flash._t = setTimeout(() => { msg.textContent = ''; }, 6000);
+  }
+
+  function copyText(text, okMsg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flash(okMsg), () => fallbackCopy(text, okMsg));
+    } else fallbackCopy(text, okMsg);
+  }
+  function fallbackCopy(text, okMsg) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); flash(okMsg); }
+    catch (e) { flash('Copy failed — select the text manually.', true); }
+    document.body.removeChild(ta);
+  }
+
+  $('btnScan').addEventListener('click', runScan);
+  $('btnClear').addEventListener('click', () => { input.value = ''; runScan(); });
+  $('btnSample').addEventListener('click', () => {
+    input.value = 'Hello\u200BWorld! This “sample” — copied from a chat\u202F— hides ghosts: p\u0430ssword with Cyrillic \u0430, an NBSP\u00A0here, soft\u00ADhyphen, and \u202Ereversed\u202C text.\uFEFF';
+    runScan();
+    flash('Dirty sample loaded — press Clean text to exorcise it.');
+  });
+  ['optAi', 'optHomo', 'optMap'].forEach(id => $(id).addEventListener('change', runScan));
+  input.addEventListener('input', runScan);
+
+  $('btnClean').addEventListener('click', () => {
+    const res = doClean(false);
+    if (res) { input.value = res.cleaned; runScan(); }
+  });
+  $('btnCopy').addEventListener('click', () => {
+    const res = doClean(true);
+    if (!res) return;
+    copyText(res.cleaned, 'Cleaned text copied to clipboard.');
+  });
+  $('btnReport').addEventListener('click', () => {
+    if (!input.value) { flash('Paste some text first.', true); return; }
+    const findings = collectFindings(input.value);
+    const summary = summarizeFindings(findings);
+    copyText(buildReport(lastCleaned || cleanText(input.value, readCleanOpts()).cleaned, summary), 'Summary + cleaned text copied.');
+  });
+  $('btnDownload').addEventListener('click', () => {
+    const res = doClean(true);
+    if (!res) return;
+    const blob = new Blob([res.cleaned], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ghostglyph-cleaned.txt';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    flash('Downloaded ghostglyph-cleaned.txt');
+  });
+
+  // Recent scans (summary only, never the text)
+  function saveRecent() {
+    if (!lastSummary) return;
+    try {
+      const key = 'ghostglyph-recent-v1';
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      list.unshift({ t: new Date().toISOString(), total: lastSummary.total, cats: lastSummary.categories.map(c => c.label + ':' + c.count).join(', ') });
+      localStorage.setItem(key, JSON.stringify(list.slice(0, 5)));
+      renderRecent(list.slice(0, 5));
+    } catch (e) { /* storage unavailable */ }
+  }
+  function renderRecent(list) {
+    const box = $('recentList');
+    if (!list.length) { box.textContent = 'No scans yet — run your first scan above.'; return; }
+    box.innerHTML = list.map(r =>
+      '<div class="flex flex-wrap gap-x-3 gap-y-1 py-1 border-b border-slate-100 last:border-0">' +
+      '<span class="mono text-slate-400">' + esc(r.t.slice(0, 16).replace('T', ' ')) + '</span>' +
+      '<span class="font-bold ' + (r.total ? 'text-red-600' : 'text-emerald-600') + '">' + r.total + ' findings</span>' +
+      '<span class="text-slate-400">' + esc(r.cats || 'clean') + '</span></div>'
+    ).join('');
+  }
+  try { renderRecent(JSON.parse(localStorage.getItem('ghostglyph-recent-v1') || '[]')); } catch (e) {}
+
+  // FAQ accordion
+  document.querySelectorAll('.faq-toggle').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.faq-item').classList.toggle('open'));
+  });
+})();
+</script>
+
+<!-- ============ FAQ JSON-LD ============ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What exactly is a zero-width character?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A zero-width character is a Unicode code point that occupies no horizontal space when rendered, so it is completely invisible. Common ones include the zero-width space (U+200B), zero-width non-joiner (U+200C) and zero-width joiner (U+200D). They are legitimate in some scripts but cause problems when they appear unintentionally in copied text, breaking string comparisons, passwords, search and code without any visible clue." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can invisible characters prove text was written by AI?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Invisible characters are formatting residue, not authorship evidence. They arrive from Word documents, PDF extraction, web pages, messaging apps and sometimes AI chat output. Their presence only tells you the text passed through software that inserted them; it says nothing reliable about who wrote the words." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a homoglyph attack and how do I spot one?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A homoglyph attack substitutes letters from one script with visually identical letters from another, such as Cyrillic a (U+0430) for Latin a (U+0061), so a phishing domain looks correct while resolving elsewhere. Spotting one by eye is nearly impossible; you need code-point inspection. GhostGlyph shows a side-by-side comparison of the suspicious character and its Latin look-alike, each labeled with its Unicode code point." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my pasted text break code, CSVs or formulas?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Almost always because of invisible characters: a non-breaking space (U+00A0) looks like a space but is a different code point, so spreadsheet lookups fail; smart quotes break SQL and JSON; a byte-order mark (U+FEFF) confuses parsers; soft hyphens from PDFs split words into unrecognized tokens. Detecting the exact code points and normalizing them fixes the breakage." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it safe to remove all invisible characters automatically?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Zero-width characters, direction controls and stray formatting marks are almost always safe to strip. Take care with ZWJ and ZWNJ in Arabic, Persian and Indic scripts where they shape ligatures, and with homoglyphs, which are only suspicious when an unexpected script appears inside otherwise Latin text. GhostGlyph keeps homoglyph replacement as a separate opt-in checkbox for this reason." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does GhostGlyph upload or store my text anywhere?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. All detection and cleaning runs in JavaScript inside your browser tab, with no backend and no network calls for analysis. Only a small summary of recent scans (counts per category and timestamps) is kept in your browser's local storage. Your pasted text is never saved or transmitted." }
+    }
+  ]
+}
+</script>
+</body>
+</html>
