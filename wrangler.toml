@@ -1,0 +1,3 @@
+name = "ghostglyph-invisible-detector"
+main = "__guest_main.js"
+compatibility_date = "2026-10-01"
